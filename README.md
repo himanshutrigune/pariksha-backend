@@ -1,224 +1,305 @@
-# Pariksha Backend – Online Exam & Institute Management REST API
+# 📝 Pariksha – Online Exam Platform (Backend)
 
-An intermediate-level backend project for Java freshers, built with the stack that is current in 2026:
+> A REST API that lets an institute run online tests: teachers build exams, students take them against a server-side timer, and answers are graded automatically.
 
-| Layer | Technology |
-|-------|-----------|
-| Language | **Java 21** (records, text blocks, pattern matching, virtual threads) |
-| Framework | **Spring Boot 3.5** (Spring MVC, Spring Data JPA, Spring Security 6) |
-| API style | **REST** + **Swagger / OpenAPI 3** docs, RFC-7807 *Problem Details* errors |
-| Auth | **JWT** (stateless) + **role based access** (ADMIN / TEACHER / STUDENT) |
-| Database | **MySQL 8** (use **MySQL Workbench** to explore) |
-| Schema | **SQL scripts** (`schema.sql` + `data.sql`) run by Spring on startup |
+![Java](https://img.shields.io/badge/Java-21-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)
+![MySQL](https://img.shields.io/badge/MySQL-8-blue)
+![JWT](https://img.shields.io/badge/Auth-JWT-purple)
+![Tests](https://img.shields.io/badge/Tests-JUnit%205%20%2B%20Mockito-yellow)
+
+---
+
+## 💡 What is this project?
+
+Think of a coaching institute that wants to run weekly tests online. This backend handles the whole flow:
+
+1. The **Admin** sets up the institute and adds teachers and students.
+2. A **Teacher** builds a question bank, creates an exam from those questions, publishes it and assigns it to a classroom.
+3. A **Student** logs in, starts the exam, and submits before the deadline.
+4. The system **grades it instantly** (with negative marking) and shows the result, rank and answer review.
+5. The Teacher sees a **leaderboard** and which questions were hardest.
+
+I built it to practise real-world backend skills: clean layered code, secure login, role-based access, a properly designed database, and unit tests.
+
+---
+
+## ✨ Features
+
+- 🔐 **JWT login** with three roles: `ADMIN`, `TEACHER`, `STUDENT`
+- 🏫 **Multi-tenant**: every query is scoped to the logged-in user's institute, so one institute can never see another's data
+- ❓ **Question bank**: MCQs by subject, chapter, standard and difficulty
+- 📋 **Exam lifecycle**: `DRAFT → PUBLISHED → ARCHIVED`
+- ⏱️ **Server-side timer**: the deadline can't be cheated by editing the browser
+- ✅ **Auto-evaluation** with positive and negative marking
+- 🏆 **Leaderboard and per-question analytics** for teachers
+- 📖 **Swagger UI** to try every endpoint in the browser
+- 🧪 **Unit tests** with JUnit 5 and Mockito
+
+---
+
+## 🛠️ Tech stack
+
+| What | Technology |
+|---|---|
+| Language | Java 21 |
+| Framework | Spring Boot 3.5 (Spring MVC) |
+| Database | MySQL 8 + SQL scripts |
+| Data access | Spring Data JPA + Hibernate |
+| Security | Spring Security 6 + JWT (jjwt) + BCrypt |
+| API docs | Swagger / OpenAPI 3 (springdoc) |
+| Testing | JUnit 5 + Mockito (+ AssertJ) |
 | Build | Maven |
-| Tests | **JUnit 5 + Mockito** (+ AssertJ assertions) |
-
-It is a clean re-design of the uploaded `InstituteManagement` + `Parikshadb.sql` project
-(old: Spring Boot 2.3, Java 8, hand-written JDBC repositories, multi-module Maven).
+| Helper | Lombok (less boilerplate) |
 
 ---
 
-## 1. What the system does
+## 🗂️ Database design (ER diagram)
 
-An institute runs online tests for its students.
+```mermaid
+erDiagram
+    INSTITUTES ||--o{ USERS : has
+    INSTITUTES ||--o{ STUDENTS : has
+    INSTITUTES ||--o{ QUESTIONS : owns
+    INSTITUTES ||--o{ EXAMS : owns
+    INSTITUTES ||--o{ CLASSROOMS : owns
 
-1. **Admin** registers the institute, adds teachers and students.
-2. **Teacher** builds a **question bank** (MCQ, subject / chapter / standard / difficulty).
-3. **Teacher** creates an **exam** from questions (marks + negative marking), publishes it and **assigns it to a classroom**.
-4. **Student** logs in, sees assigned exams, **starts** (timer + deadline enforced on the server), **submits** – the answers are **auto-evaluated**.
-5. **Student** sees result, rank and answer review. **Teacher** sees leaderboard and per-question analytics.
+    USERS ||--o| STUDENTS : "is profile of"
+    STANDARDS ||--o{ STUDENTS : "belongs to"
+    SUBJECTS ||--o{ CHAPTERS : contains
+    SUBJECTS ||--o{ QUESTIONS : "grouped by"
+    CHAPTERS ||--o{ QUESTIONS : "tagged with"
+    STANDARDS ||--o{ QUESTIONS : "tagged with"
 
-### Role matrix
+    QUESTIONS ||--|{ QUESTION_OPTIONS : "has options"
+    EXAMS ||--|{ EXAM_QUESTIONS : "made of"
+    QUESTIONS ||--o{ EXAM_QUESTIONS : "used in"
 
-| Feature | ADMIN | TEACHER | STUDENT |
-|---|:--:|:--:|:--:|
-| Register institute, update institute | ✅ | – | – |
-| Manage teachers | ✅ | – | – |
-| Manage students / classrooms | ✅ | ✅ | – |
-| Question bank, exams, reports | ✅ | ✅ | – |
-| Take exams, see own results | – | – | ✅ |
+    CLASSROOMS ||--o{ CLASSROOM_STUDENTS : has
+    STUDENTS ||--o{ CLASSROOM_STUDENTS : "joins"
+    CLASSROOMS ||--o{ CLASSROOM_EXAMS : "assigned"
+    EXAMS ||--o{ CLASSROOM_EXAMS : "given to"
 
-Every query is automatically scoped to the **institute of the logged-in user** (multi-tenancy), so one institute can never read another one's data.
+    EXAMS ||--o{ EXAM_ATTEMPTS : "attempted in"
+    STUDENTS ||--o{ EXAM_ATTEMPTS : makes
+    EXAM_ATTEMPTS ||--o{ ATTEMPT_ANSWERS : records
+    QUESTIONS ||--o{ ATTEMPT_ANSWERS : "answered"
+    QUESTION_OPTIONS ||--o{ ATTEMPT_ANSWERS : "selected"
+
+    INSTITUTES { bigint id PK
+        string name
+        string code UK }
+    USERS { bigint id PK
+        bigint institute_id FK
+        string email UK
+        string password_hash
+        string role "ADMIN | TEACHER | STUDENT" }
+    STUDENTS { bigint id PK
+        bigint user_id FK
+        string roll_number
+        bigint standard_id FK }
+    QUESTIONS { bigint id PK
+        bigint subject_id FK
+        bigint chapter_id FK
+        string difficulty "EASY | MEDIUM | HARD"
+        text content }
+    QUESTION_OPTIONS { bigint id PK
+        bigint question_id FK
+        string option_text
+        boolean is_correct }
+    EXAMS { bigint id PK
+        string name
+        int duration_minutes
+        datetime start_time
+        datetime end_time
+        string status "DRAFT | PUBLISHED | ARCHIVED" }
+    EXAM_QUESTIONS { bigint exam_id FK
+        bigint question_id FK
+        double positive_marks
+        double negative_marks }
+    EXAM_ATTEMPTS { bigint id PK
+        bigint exam_id FK
+        bigint student_id FK
+        string status "IN_PROGRESS | SUBMITTED"
+        double total_score }
+    ATTEMPT_ANSWERS { bigint attempt_id FK
+        bigint question_id FK
+        bigint selected_option_id FK
+        double marks_awarded }
+```
+
+### The ER diagram in plain words
+
+- An **institute** owns everything: users, students, questions, exams and classrooms.
+- A **user** is a login account. A **student** is an extra profile attached to a user.
+- **Subjects → chapters → questions**: each question belongs to a subject, and optionally a chapter and standard (class).
+- Each **question** has several **options**, and exactly one is marked correct.
+- An **exam** is a set of questions. The `exam_questions` table stores the order and marks for each one.
+- **Classrooms** group students. The `classroom_students` and `classroom_exams` tables link them to students and exams (many-to-many).
+- When a student starts an exam, an **exam attempt** is created. Each of their answers goes in **attempt_answers**.
+- A student gets **one attempt per exam**, enforced by a `UNIQUE (exam_id, student_id)` constraint in the database.
+
+The full SQL is in [`src/main/resources/schema.sql`](src/main/resources/schema.sql).
 
 ---
 
-## 2. Run it (5 minutes)
+## 🏗️ Project structure
+
+Code is organised **by feature**. Each feature follows `Controller → Service → Repository → Entity`, with DTO records for requests and responses (entities are never exposed directly).
+
+```
+src/main/java/com/pariksha
+├── config/       Security, OpenAPI, Clock + JPA auditing
+├── security/     JWT service, JWT filter, 401/403 JSON handlers
+├── common/       BaseEntity, PageResponse, custom exceptions, global error handler
+├── auth/         register institute, login, "who am I"
+├── institute/    institute profile
+├── user/         users and teacher management
+├── student/      student CRUD, search and pagination
+├── academic/     standards, subjects, chapters
+├── question/     question bank with options
+├── exam/         create, edit, publish, archive exams
+├── classroom/    classrooms, assign students and exams
+├── attempt/      start, submit, scoring, results, leaderboard, analytics
+└── seed/         demo data for first run
+```
+
+---
+
+## 🚀 Getting started
 
 ### Prerequisites
-* JDK **21**, Maven **3.9+** (IntelliJ IDEA has Maven built in)
-* **MySQL 8** running locally + **MySQL Workbench**
+- JDK 21
+- Maven 3.9+ (IntelliJ has it built in)
+- MySQL 8 running locally (MySQL Workbench is handy for exploring)
 
-### Steps
-1. Open **MySQL Workbench** → connect to your local server (default user `root`).
-2. *(Optional)* open `database/01_schema.sql`, `database/02_master_data.sql` and run them to see the tables in Workbench.
-   You can skip this – the app creates the `pariksha_db` database and all tables itself from `src/main/resources/schema.sql`.
-3. If your MySQL password is not `root`, set it (or edit `src/main/resources/application.yml`):
-   ```bash
-   # Linux / macOS
-   export DB_USERNAME=root
-   export DB_PASSWORD=your_password
-   # Windows PowerShell
-   $env:DB_USERNAME="root"; $env:DB_PASSWORD="your_password"
-   ```
-4. Start the API:
-   ```bash
-   mvn spring-boot:run
-   ```
-5. Open **http://localhost:8080/swagger-ui.html**
-6. In Workbench press the refresh icon in *SCHEMAS* → `pariksha_db` → you will see all tables with demo data.
-   Use `database/03_practice_queries.sql` to practise SQL (joins, group by, window functions).
+### Run it
 
-### Demo accounts (created automatically on first start)
+```bash
+# 1. Get the code
+git clone <your-repo-url>
+cd pariksha-backend
+
+# 2. (Only if your MySQL password isn't "root")
+export DB_USERNAME=root
+export DB_PASSWORD=your_password        # Windows PowerShell: $env:DB_PASSWORD="your_password"
+
+# 3. Start the API
+mvn spring-boot:run
+```
+
+On first start the app creates the `pariksha_db` database, creates all tables from `schema.sql`, and loads demo data.
+
+Then open **http://localhost:8080/swagger-ui.html** 🎉
+
+### Demo accounts
 
 | Role | Email | Password |
-|------|-------|----------|
-| ADMIN | admin@demo.com | Admin@123 |
-| TEACHER | teacher@demo.com | Teacher@123 |
-| STUDENT | student1@demo.com … student5@demo.com | Student@123 |
+|---|---|---|
+| Admin | `admin@demo.com` | `Admin@123` |
+| Teacher | `teacher@demo.com` | `Teacher@123` |
+| Student | `student1@demo.com` … `student5@demo.com` | `Student@123` |
 
-**How to call secured APIs in Swagger:** `POST /api/v1/auth/login` → copy `accessToken` → click **Authorize** → paste the token.
-More ready-made requests are in `api-requests.http` (IntelliJ HTTP Client / VS Code REST Client).
+### Try it in Swagger
+1. Call `POST /api/v1/auth/login` with a demo account.
+2. Copy the `accessToken` from the response.
+3. Click **Authorize** (top right) and paste the token (without the word `Bearer`).
+4. Every endpoint now works for that role.
 
-### Run tests
+More ready-made requests are in [`api-requests.http`](api-requests.http) (IntelliJ HTTP Client / VS Code REST Client).
+
+### Run the tests
+
 ```bash
 mvn test
 ```
 
 ---
 
-## 3. Project structure (package-by-feature)
+## 🔌 API overview
 
-```
-src/main/java/com/pariksha
-├── config/        SecurityConfig, OpenApiConfig, AppConfig (Clock + JPA auditing)
-├── security/      JwtService, JwtAuthenticationFilter, AuthUser, 401/403 JSON handlers
-├── common/        BaseEntity, PageResponse, custom exceptions, GlobalExceptionHandler
-├── auth/          register-institute, login, me
-├── institute/     institute profile
-├── user/          User entity, teacher management
-├── student/       student profile + CRUD + search/pagination
-├── academic/      standards, subjects, chapters (master data)
-├── question/      question bank (+ options)
-├── exam/          exam creation, publishing (DRAFT → PUBLISHED → ARCHIVED)
-├── classroom/     classrooms, assign students & exams
-├── attempt/       start / submit / auto-evaluation / results / leaderboard / analytics
-└── seed/          demo data seeder
-```
-Each feature follows **Controller → Service → Repository → Entity**, with request/response **DTO records** (entities are never exposed).
-
----
-
-## 4. Database design
-
-```mermaid
-erDiagram
-    institutes ||--o{ users : has
-    institutes ||--o{ students : has
-    institutes ||--o{ questions : owns
-    institutes ||--o{ exams : owns
-    institutes ||--o{ classrooms : has
-    users ||--|| students : "login of"
-    standards ||--o{ students : "belongs to"
-    subjects ||--o{ chapters : contains
-    subjects ||--o{ questions : "about"
-    chapters ||--o{ questions : "about"
-    questions ||--|{ question_options : has
-    exams ||--|{ exam_questions : contains
-    questions ||--o{ exam_questions : "used in"
-    classrooms }o--o{ students : "classroom_students"
-    classrooms }o--o{ exams : "classroom_exams"
-    exams ||--o{ exam_attempts : "attempted as"
-    students ||--o{ exam_attempts : makes
-    exam_attempts ||--|{ attempt_answers : has
-    questions ||--o{ attempt_answers : "answered in"
-```
-
-**To see this inside Workbench:** `Database → Reverse Engineer…` → select `pariksha_db` → you get the EER diagram.
-
-### How the old `Parikshadb` maps to the new schema
-
-| Old table(s) | New table | What changed |
-|---|---|---|
-| INSTITUTE_MASTER | `institutes` | snake_case, unique code |
-| USR_USER_MASTER, EddyTechUser | `users` | one table, BCrypt hash (old: custom salt+hash), unique e-mail |
-| Student | `students` | linked to `users`, soft delete, FK constraints |
-| Standard / Subject / Chapter / Topic | `standards`, `subjects`, `chapters` | proper FKs; Topic left out to keep scope intermediate |
-| Question, OptionSet, OptionMeta, QuestionExplanation | `questions`, `question_options` | explanation merged into `questions`, one correct option |
-| Test, TestQuestion, Section | `exams`, `exam_questions` | DRAFT/PUBLISHED lifecycle, marks per question |
-| Classroom, ClassroomStudent, ClassroomTest | `classrooms`, `classroom_students`, `classroom_exams` | many-to-many join tables |
-| TestResult, TestResultAnswer | `exam_attempts`, `attempt_answers` | one attempt per student per exam (`UNIQUE`) |
-| TestAnalysis | computed on demand (`/exams/{id}/analytics`) | no stale data to maintain |
-| TestAssignment, StudentFeedbackMaster, TEST_REPORT_QUESTION, QuestionMeta | – | candidates for the "next steps" below |
-
----
-
-## 5. API overview (all under `/api/v1`)
+All endpoints live under `/api/v1`.
 
 | Area | Endpoints |
 |---|---|
-| **Auth** | `POST /auth/register-institute` · `POST /auth/login` · `GET /auth/me` |
-| **Institute** | `GET /institutes/me` · `PUT /institutes/me` |
-| **Teachers** | `POST /teachers` · `GET /teachers` |
-| **Students** | `POST /students` · `GET /students?search=&page=&size=` · `GET/PUT/DELETE /students/{id}` |
-| **Master data** | `GET/POST /standards` · `GET/POST /subjects` · `GET/POST /subjects/{id}/chapters` |
-| **Questions** | `POST /questions` · `GET /questions?subjectId=&chapterId=&difficulty=&search=` · `GET/PUT/DELETE /questions/{id}` |
-| **Exams** | `POST /exams` · `GET /exams?status=` · `GET/PUT/DELETE /exams/{id}` · `POST /exams/{id}/publish` · `POST /exams/{id}/archive` |
-| **Classrooms** | `POST /classrooms` · `GET /classrooms` · `GET /classrooms/{id}` · `POST /classrooms/{id}/students` · `POST /classrooms/{id}/exams` · `DELETE …/students/{sid}` · `DELETE …/exams/{eid}` |
-| **Student exam flow** | `GET /student/exams` · `POST /student/exams/{id}/start` · `POST /student/exams/{id}/submit` · `GET /student/results` · `GET /student/results/{examId}` |
-| **Reports** | `GET /exams/{id}/leaderboard` · `GET /exams/{id}/analytics` |
+| Auth | `POST /auth/register-institute` · `POST /auth/login` · `GET /auth/me` |
+| Institute | `GET /institutes/me` · `PUT /institutes/me` |
+| Teachers | `POST /teachers` · `GET /teachers` |
+| Students | `POST /students` · `GET /students?search=&page=&size=` · `GET/PUT/DELETE /students/{id}` |
+| Master data | `GET/POST /standards` · `GET/POST /subjects` · `GET/POST /subjects/{id}/chapters` |
+| Questions | `POST /questions` · `GET /questions?subjectId=&chapterId=&difficulty=&search=` · `GET/PUT/DELETE /questions/{id}` |
+| Exams | `POST /exams` · `GET /exams?status=` · `GET/PUT/DELETE /exams/{id}` · `POST /exams/{id}/publish` · `POST /exams/{id}/archive` |
+| Classrooms | `POST /classrooms` · `GET /classrooms` · `POST /classrooms/{id}/students` · `POST /classrooms/{id}/exams` |
+| Student exam flow | `GET /student/exams` · `POST /student/exams/{id}/start` · `POST /student/exams/{id}/submit` · `GET /student/results` |
+| Reports | `GET /exams/{id}/leaderboard` · `GET /exams/{id}/analytics` |
 
-Errors always look like this (RFC 7807):
+Errors follow the standard RFC 7807 format:
+
 ```json
-{ "type": "about:blank", "title": "Validation failed", "status": 400,
+{ "title": "Validation failed", "status": 400,
   "detail": "One or more fields are invalid",
-  "errors": { "email": "must be a well-formed email address" },
-  "timestamp": "2026-10-19T10:15:30Z", "path": "/api/v1/students" }
+  "errors": { "email": "must be a well-formed email address" } }
 ```
 
-### Important business rules (good interview talking points)
-* Only **DRAFT** exams can be edited/deleted; a **PUBLISHED** exam is frozen and can be assigned to classrooms.
-* A student may start only inside the exam window and only if the exam is assigned to one of their classrooms.
-* The deadline is `min(startedAt + duration, exam end time)` and is enforced **on the server** (60 s grace on submit).
-* Refreshing the page **resumes** the same attempt (same deadline). One attempt per student (DB `UNIQUE` + service check).
-* Marking: `+positive` correct, `-negative` wrong, `0` skipped. Correct answers are **never sent** to the student before submission.
-* Rank uses competition ranking (equal scores share a rank: 1, 2, 2, 4).
-* Result visibility: immediately, or only after the exam window ends (`showResultImmediately = false`).
+### Who can do what
+
+| Feature | Admin | Teacher | Student |
+|---|:--:|:--:|:--:|
+| Manage institute and teachers | ✅ | – | – |
+| Manage students and classrooms | ✅ | ✅ | – |
+| Question bank, exams, reports | ✅ | ✅ | – |
+| Take exams, see own results | – | – | ✅ |
 
 ---
 
-## 6. Concepts you practise in this project
+## 📐 Key business rules
 
-* Layered architecture, DTO pattern, Java **records**
-* Spring Data JPA: relationships (`@ManyToOne`, `@OneToMany`, `@ManyToMany`), JPQL, pagination, `@EntityGraph`, soft delete, transactions
-* Bean Validation (`@Valid`, `@NotBlank`, `@Email` …)
-* Spring Security 6: `SecurityFilterChain`, custom JWT filter, BCrypt, `@PreAuthorize`, CORS
-* Global exception handling with `@RestControllerAdvice` + `ProblemDetail`
-* MySQL SQL scripts: constraints, indexes, joins, subqueries, transactions (`database/03_practice_queries.sql`)
-* OpenAPI/Swagger, environment-based configuration, unit testing with JUnit 5 + Mockito
-
----
-
-## 7. Next steps (turn it into a portfolio-grade project)
-
-1. **Scheduled auto-submit** – `@Scheduled` job that submits expired `IN_PROGRESS` attempts.
-2. **Refresh tokens** and logout / token revocation.
-3. **Integration tests** with Testcontainers (MySQL) and `@WebMvcTest` + Spring Security Test.
-4. **Redis caching** for the question bank (the original project used Redis).
-5. **Bulk import** of questions from Excel/CSV, image upload for questions (S3 / local storage).
-6. **Sections** and **topics** (tables `Section`, `Topic` from the old DB), student feedback & "report a question".
-7. Email / WhatsApp notification when a result is published.
-8. Rate limiting on `/auth/login`, audit columns (`created_by`).
-9. Add a frontend (React / Angular) that consumes this API.
+- Only **DRAFT** exams can be edited or deleted. A **PUBLISHED** exam is frozen.
+- A student can start only **inside the exam window**, and only if the exam is assigned to their classroom.
+- The deadline is `min(startedAt + duration, exam end time)` and is **enforced on the server** (60 seconds of grace on submit).
+- Refreshing the page **resumes the same attempt**. There is one attempt per student.
+- Marking: `+marks` for correct, `−negative marks` for wrong, `0` for skipped.
+- Correct answers are **never sent to the student before submission**.
+- Ranking is competition-style: equal scores share a rank (1, 2, 2, 4).
+- Results can be shown immediately, or only after the exam window ends.
 
 ---
 
-## 8. Troubleshooting
+## 🧠 What I learned
+
+- Designing a normalised relational schema with foreign keys, unique constraints and indexes
+- Layered architecture and the DTO pattern
+- JWT authentication and role-based authorisation with Spring Security 6
+- Multi-tenant data isolation
+- Global exception handling with RFC 7807 Problem Details
+- Writing unit tests with Mockito, without a database
+
+---
+
+## 🔭 Future improvements
+
+- [ ] Scheduled auto-submit for expired attempts
+- [ ] Refresh tokens and logout
+- [ ] Integration tests with Testcontainers
+- [ ] Bulk import of questions from Excel/CSV
+- [ ] Email notification when results are published
+- [ ] A React frontend
+
+---
+
+## 🩺 Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| `Access denied for user 'root'` | set `DB_PASSWORD` env var (step 3) |
-| `Communications link failure` | MySQL is not running / wrong port (default 3306) |
-| `Unsupported class file major version` | you are not on JDK 21 (`java -version`) |
-| Tables look wrong after editing `schema.sql` | drop the `pariksha_db` schema in Workbench and restart (schema.sql only creates missing tables) |
-| 401 on every call | click **Authorize** in Swagger and paste only the token (no "Bearer ") |
-| Lombok errors in IDE | install the Lombok plugin and enable *annotation processing* |
+| `Access denied for user 'root'` | Set the `DB_PASSWORD` environment variable |
+| `Communications link failure` | MySQL isn't running, or is on a different port (default 3306) |
+| `Unsupported class file major version` | You're not on JDK 21 (`java -version`) |
+| 401 on every call | Click **Authorize** in Swagger and paste only the token |
+| Tables look wrong after editing `schema.sql` | Drop the `pariksha_db` schema and restart |
+| Lombok errors in the IDE | Install the Lombok plugin and enable annotation processing |
+
+---
+
+## 👤 Author
+
+**Your Name** · [GitHub](https://github.com/your-username) · [LinkedIn](https://linkedin.com/in/your-profile)
