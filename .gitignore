@@ -1,6 +1,30 @@
+<<<<<<< HEAD
 target/
 .idea/
 *.iml
 .vscode/
 *.log
 .env
+=======
+
+# Java
+*.class
+*.log
+
+# Build output
+target/
+build/
+out/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+>>>>>>> 8def58f34f6c0a433ff51cf8d2f64470685f8e37
