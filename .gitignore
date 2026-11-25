@@ -3,7 +3,7 @@
 *.class
 *.log
 
-# Build output
+# Maven / Gradle
 target/
 build/
 out/
@@ -12,7 +12,7 @@ out/
 .idea/
 *.iml
 
-# Environment variables and secrets
+# Environment files
 .env
 .env.*
 !.env.example
