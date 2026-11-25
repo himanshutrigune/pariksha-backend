@@ -1,0 +1,105 @@
+### Works in IntelliJ IDEA (HTTP Client) and VS Code (REST Client extension)
+### Run the requests top to bottom. Tokens are stored automatically (IntelliJ syntax).
+
+@host = http://localhost:8080/api/v1
+
+### 1. Login as teacher
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "teacher@demo.com", "password": "Teacher@123" }
+
+> {% client.global.set("teacherToken", response.body.accessToken); %}
+
+### 2. List subjects (master data)
+GET {{host}}/subjects
+Authorization: Bearer {{teacherToken}}
+
+### 3. Add a question
+POST {{host}}/questions
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "content": "Which HTTP method is idempotent?",
+  "subjectId": 6,
+  "difficulty": "EASY",
+  "explanation": "PUT can be repeated with the same result.",
+  "options": [
+    { "text": "POST", "correct": false },
+    { "text": "PUT",  "correct": true },
+    { "text": "PATCH", "correct": false }
+  ]
+}
+
+### 4. Search questions
+GET {{host}}/questions?subjectId=1&difficulty=EASY&page=0&size=5
+Authorization: Bearer {{teacherToken}}
+
+### 5. Create an exam (DRAFT) - use real question ids from step 4
+POST {{host}}/exams
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "name": "Maths Quick Quiz",
+  "durationMinutes": 15,
+  "startTime": "2026-01-01T09:00:00",
+  "endTime": "2030-12-31T18:00:00",
+  "showResultImmediately": true,
+  "questions": [
+    { "questionId": 1, "positiveMarks": 4, "negativeMarks": 1 },
+    { "questionId": 2, "positiveMarks": 4, "negativeMarks": 1 }
+  ]
+}
+
+### 6. Publish the exam (replace 2 with the id returned above)
+POST {{host}}/exams/2/publish
+Authorization: Bearer {{teacherToken}}
+
+### 7. Assign exam to classroom 1
+POST {{host}}/classrooms/1/exams
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{ "examIds": [2] }
+
+### 8. Login as student
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "student1@demo.com", "password": "Student@123" }
+
+> {% client.global.set("studentToken", response.body.accessToken); %}
+
+### 9. My exams
+GET {{host}}/student/exams
+Authorization: Bearer {{studentToken}}
+
+### 10. Start exam 1 (returns the paper without correct answers)
+POST {{host}}/student/exams/1/start
+Authorization: Bearer {{studentToken}}
+
+### 11. Submit answers (use real option ids from step 10)
+POST {{host}}/student/exams/1/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    { "questionId": 1, "selectedOptionId": 3, "timeSpentSeconds": 20 },
+    { "questionId": 2, "selectedOptionId": 6, "timeSpentSeconds": 15 }
+  ]
+}
+
+### 12. My detailed result
+GET {{host}}/student/results/1
+Authorization: Bearer {{studentToken}}
+
+### 13. Leaderboard + analytics (teacher)
+GET {{host}}/exams/1/leaderboard
+Authorization: Bearer {{teacherToken}}
+
+###
+GET {{host}}/exams/1/analytics
+Authorization: Bearer {{teacherToken}}
