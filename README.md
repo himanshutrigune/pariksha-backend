@@ -302,4 +302,4 @@ Errors follow the standard RFC 7807 format:
 
 ## 👤 Author
 
-**Your Name** · [GitHub](https://github.com/your-username) · [LinkedIn](https://linkedin.com/in/your-profile)
+**Your Name** · [GitHub](https://github.com/himanshutrigune) · [LinkedIn](https://linkedin.com/in/himanshu-trigune/)
