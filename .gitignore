@@ -1,0 +1,21 @@
+
+# Java
+*.class
+*.log
+
+# Build output
+target/
+build/
+out/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
