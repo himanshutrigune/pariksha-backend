@@ -300,6 +300,6 @@ Errors follow the standard RFC 7807 format:
 
 ---
 
-## 👤 Author
+## 👤 Himanshu Trigune
 
 **Your Name** · [GitHub](https://github.com/himanshutrigune) · [LinkedIn](https://linkedin.com/in/himanshu-trigune/)
