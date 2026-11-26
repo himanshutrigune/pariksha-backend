@@ -47,8 +47,8 @@ I built it to practise real-world backend skills: clean layered code, secure log
 | Database | MySQL 8 + SQL scripts |
 | Data access | Spring Data JPA + Hibernate |
 | Security | Spring Security 6 + JWT (jjwt) + BCrypt |
-| API docs | Swagger / OpenAPI 3 (springdoc) |
-| Testing | JUnit 5 + Mockito (+ AssertJ) |
+| API docs | Swagger  |
+| Testing | JUnit 5 + Mockito  |
 | Build | Maven |
 | Helper | Lombok (less boilerplate) |
 
